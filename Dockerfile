@@ -34,8 +34,8 @@ RUN mkdir -p /openclaw \
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile --prod
-RUN pnpm add playwright && npx playwright install chromium
+RUN corepack enable && pnpm install --prod --no-frozen-lockfile
+RUN npx playwright install chromium
 
 COPY src ./src
 COPY --chmod=755 entrypoint.sh ./entrypoint.sh
