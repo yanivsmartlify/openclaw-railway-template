@@ -35,7 +35,8 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
 RUN corepack enable && pnpm install --prod --no-frozen-lockfile
-RUN npx playwright install chromium
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx playwright install chromium
 
 COPY src ./src
 COPY --chmod=755 entrypoint.sh ./entrypoint.sh
@@ -61,4 +62,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD curl -f http://localhost:8080/setup/healthz || exit 1
 
 USER root
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENTRYPOINT ["./entrypoint.sh"]
