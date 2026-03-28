@@ -1,102 +1,63 @@
-# Build openclaw from source to avoid npm packaging gaps (some dist files are not shipped).
-FROM node:22-bookworm AS openclaw-build
-
-# Dependencies needed for openclaw build
-RUN apt-get update \
-  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    git \
-    ca-certificates \
-    curl \
-    python3 \
-    make \
-    g++ \
-  && rm -rf /var/lib/apt/lists/*
-
-# Install Bun (openclaw build uses it)
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
-
-RUN corepack enable
-
-WORKDIR /openclaw
-
-# OpenClaw version control:
-# - Set OPENCLAW_VERSION Railway variable to use a specific tag (e.g., v2026.2.15)
-# - If not set, defaults to main branch (original behavior)
-# - Can also override locally with --build-arg OPENCLAW_VERSION=<tag>
-ARG OPENCLAW_VERSION
-RUN set -eu; \
-  if [ -n "${OPENCLAW_VERSION:-}" ]; then \
-    REF="${OPENCLAW_VERSION}"; \
-    echo "✓ Using OpenClaw ${REF}"; \
-  else \
-    REF="main"; \
-    echo "⚠ OPENCLAW_VERSION not set, using main branch (may be unstable)"; \
-  fi; \
-  git clone --depth 1 --branch "${REF}" https://github.com/openclaw/openclaw.git .
-
-# Patch: relax version requirements for packages that may reference unpublished versions.
-# Apply to all extension package.json files to handle workspace protocol (workspace:*).
-RUN set -eux; \
-  find ./extensions -name 'package.json' -type f | while read -r f; do \
-    sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*">=[^"]+"/"openclaw": "*"/g' "$f"; \
-    sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*"workspace:[^"]+"/"openclaw": "*"/g' "$f"; \
-  done
-
-RUN pnpm install --no-frozen-lockfile
-RUN pnpm build
-ENV OPENCLAW_PREFER_PNPM=1
-RUN pnpm ui:install && pnpm ui:build
-
-
-# Runtime image
 FROM node:22-bookworm
-ENV NODE_ENV=production
 
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
-    build-essential \
-    gcc \
-    g++ \
-    make \
-    procps \
-    file \
     git \
+    gosu \
+    procps \
     python3 \
-    pkg-config \
-    sudo \
+    build-essential \
+    zip \
+    libnspr4 \
+    libnss3 \
+    libdbus-1-3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libatspi2.0-0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libxkbcommon0 \
+    libasound2 \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Homebrew (must run as non-root user)
-# Create a user for Homebrew installation, install it, then make it accessible to all users
-RUN useradd -m -s /bin/bash linuxbrew \
-  && echo 'linuxbrew ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+RUN npm install -g openclaw@2026.3.13 clawhub@latest
 
-USER linuxbrew
-RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-USER root
-RUN chown -R root:root /home/linuxbrew/.linuxbrew
-ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}"
+# Backward-compatibility shim for older OPENCLAW_ENTRY values.
+RUN mkdir -p /openclaw \
+  && ln -sfn /usr/local/lib/node_modules/openclaw/dist /openclaw/dist
 
 WORKDIR /app
 
-# Wrapper deps
-RUN corepack enable
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --prod --frozen-lockfile && pnpm store prune
-
-# Copy built openclaw
-COPY --from=openclaw-build /openclaw /openclaw
-
-# Provide a openclaw executable
-RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"' > /usr/local/bin/openclaw \
-  && chmod +x /usr/local/bin/openclaw
+RUN corepack enable && pnpm install --frozen-lockfile --prod
 
 COPY src ./src
+COPY --chmod=755 entrypoint.sh ./entrypoint.sh
+
+RUN useradd -m -s /bin/bash openclaw \
+  && chown -R openclaw:openclaw /app \
+  && mkdir -p /data && chown openclaw:openclaw /data \
+  && mkdir -p /home/linuxbrew/.linuxbrew && chown -R openclaw:openclaw /home/linuxbrew
+
+USER openclaw
+RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}"
+ENV HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
+ENV HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar"
+ENV HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew"
 
 ENV PORT=8080
+ENV OPENCLAW_ENTRY=/usr/local/lib/node_modules/openclaw/dist/entry.js
 EXPOSE 8080
-CMD ["node", "src/server.js"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
+  CMD curl -f http://localhost:8080/setup/healthz || exit 1
+
+USER root
+ENTRYPOINT ["./entrypoint.sh"]
