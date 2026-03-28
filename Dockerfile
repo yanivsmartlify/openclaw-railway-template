@@ -1,4 +1,4 @@
-FROM node:22-bookworm
+FROM node:24-bookworm
 
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -28,7 +28,6 @@ RUN apt-get update \
 
 RUN npm install -g openclaw@2026.3.13 clawhub@latest
 
-# Backward-compatibility shim for older OPENCLAW_ENTRY values.
 RUN mkdir -p /openclaw \
   && ln -sfn /usr/local/lib/node_modules/openclaw/dist /openclaw/dist
 
@@ -36,7 +35,7 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile --prod
-RUN npm install playwright
+RUN pnpm add playwright && npx playwright install chromium
 
 COPY src ./src
 COPY --chmod=755 entrypoint.sh ./entrypoint.sh
