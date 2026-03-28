@@ -27,8 +27,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN npm install -g openclaw@2026.3.13 clawhub@latest playwright@1.43.0
-RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx playwright install chromium
+RUN npm install -g openclaw@2026.3.13 clawhub@latest
+RUN pnpm exec playwright install chromium
 
 RUN mkdir -p /openclaw \
   && ln -sfn /usr/local/lib/node_modules/openclaw/dist /openclaw/dist
