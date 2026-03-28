@@ -26,7 +26,9 @@ RUN apt-get update \
     libasound2 \
   && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g openclaw@2026.3.13 clawhub@latest
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN npm install -g openclaw@2026.3.13 clawhub@latest playwright@1.43.0
+RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx playwright install chromium
 
 RUN mkdir -p /openclaw \
   && ln -sfn /usr/local/lib/node_modules/openclaw/dist /openclaw/dist
@@ -35,8 +37,6 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
 RUN corepack enable && pnpm install --prod --no-frozen-lockfile
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx playwright install chromium
 
 COPY src ./src
 COPY --chmod=755 entrypoint.sh ./entrypoint.sh
