@@ -2,28 +2,28 @@ FROM node:24-bookworm
 
 RUN apt-get update \
 && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-ca-certificates \
-curl \
-git \
-gosu \
-procps \
-python3 \
-build-essential \
-zip \
-libnspr4 \
-libnss3 \
-libdbus-1-3 \
-libatk1.0-0 \
-libatk-bridge2.0-0 \
-libcups2 \
-libatspi2.0-0 \
-libxcomposite1 \
-libxdamage1 \
-libxfixes3 \
-libxrandr2 \
-libgbm1 \
-libxkbcommon0 \
-libasound2 \
+  ca-certificates \
+  curl \
+  git \
+  gosu \
+  procps \
+  python3 \
+  build-essential \
+  zip \
+  libnspr4 \
+  libnss3 \
+  libdbus-1-3 \
+  libatk1.0-0 \
+  libatk-bridge2.0-0 \
+  libcups2 \
+  libatspi2.0-0 \
+  libxcomposite1 \
+  libxdamage1 \
+  libxfixes3 \
+  libxrandr2 \
+  libgbm1 \
+  libxkbcommon0 \
+  libasound2 \
 && rm -rf /var/lib/apt/lists/*
 
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
@@ -59,10 +59,14 @@ ENV HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew"
 
 ENV PORT=8080
 ENV OPENCLAW_ENTRY=/usr/local/lib/node_modules/openclaw/dist/entry.js
+
+# Runtime secret/env placeholder for Zapier MCP
+ENV ZAPIER_MCP_URL_W_TOKEN=""
+
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-CMD curl -f http://localhost:8080/setup/healthz || exit 1
+  CMD curl -f http://localhost:8080/setup/healthz || exit 1
 
 USER root
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
