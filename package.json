@@ -9,6 +9,7 @@
 "dev": "node src/server.js",
 "start": "node src/server.js",
 "reports": "node reports-server.js",
+"qa:check": "node scripts/qa-check.mjs",
 "lint": "node -c src/server.js",
 "lint:reports": "node -c reports-server.js"
 },

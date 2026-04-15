@@ -108,6 +108,30 @@ docker run --rm -p 8080:8080 \
 - UI: `http://localhost:8080/openclaw`
 - TUI: `http://localhost:8080/tui`
 
+## QA Check via SSH (No Control UI Needed)
+
+You can run a headless Playwright QA check directly in Railway SSH:
+
+```bash
+qa-check
+```
+
+`qa-check` without arguments uses default Google Sheet URL from `scripts/qa-config.json`.
+
+Alternative: list websites in a file (one URL per line) and run:
+
+```bash
+qa-check --sites-file /app/scripts/qa-sites.example.txt
+```
+
+For Slack/OpenClaw prompts, ask it to run:
+
+```text
+Run shell command:
+qa-check
+Then return the full result table and totals only.
+```
+
 ## Troubleshooting
 
 ### Control UI says disconnected / auth error

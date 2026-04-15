@@ -42,7 +42,11 @@ RUN corepack enable && pnpm install --prod --no-frozen-lockfile
 RUN pnpm exec playwright install chromium
 
 COPY src ./src
+COPY scripts ./scripts
 COPY --chmod=755 entrypoint.sh ./entrypoint.sh
+
+RUN printf '%s\n' '#!/bin/sh' 'exec node /app/scripts/qa-check.mjs "$@"' > /usr/local/bin/qa-check \
+&& chmod +x /usr/local/bin/qa-check
 
 RUN useradd -m -s /bin/bash openclaw \
 && chown -R openclaw:openclaw /app \
