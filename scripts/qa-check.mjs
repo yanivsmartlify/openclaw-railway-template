@@ -7,15 +7,17 @@ import process from "node:process";
 const DEFAULT_DAYS = 5;
 const DEFAULT_TIMEOUT_MS = 30000;
 const DEFAULT_CONFIG_PATH = "/app/scripts/qa-config.json";
+const DEFAULT_SHEET_TIMEOUT_MS = 20000;
 
 function parseArgs(argv) {
-  const args = { days: DEFAULT_DAYS };
+  const args = { days: DEFAULT_DAYS, sheetTimeoutMs: DEFAULT_SHEET_TIMEOUT_MS };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (token === "--sites-file") args.sitesFile = argv[++i];
     else if (token === "--sheet") args.sheet = argv[++i];
     else if (token === "--config") args.config = argv[++i];
     else if (token === "--days") args.days = Number(argv[++i]);
+    else if (token === "--sheet-timeout-ms") args.sheetTimeoutMs = Number(argv[++i]);
     else if (token === "--help" || token === "-h") args.help = true;
   }
   return args;
@@ -34,6 +36,7 @@ Options:
   --sites-file      Text file with one URL per line
   --sheet           Google Sheet URL or CSV export URL
   --config <PATH>   Config JSON path (default: ${DEFAULT_CONFIG_PATH})
+  --sheet-timeout-ms <N>  Timeout for downloading sheet CSV (default: ${DEFAULT_SHEET_TIMEOUT_MS})
   --help            Show this help
 `);
 }
@@ -102,9 +105,21 @@ async function loadSitesFromFile(filePath) {
     .filter(Boolean);
 }
 
-async function loadSitesFromSheet(sheetUrl) {
+async function loadSitesFromSheet(sheetUrl, timeoutMs) {
   const csvUrl = toGoogleCsvUrl(sheetUrl);
-  const response = await fetch(csvUrl);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let response;
+  try {
+    response = await fetch(csvUrl, { signal: controller.signal });
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      throw new Error(`Sheet download timed out after ${timeoutMs}ms: ${csvUrl}`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!response.ok) {
     throw new Error(`Failed to fetch sheet CSV: ${response.status} ${response.statusText}`);
   }
@@ -309,6 +324,9 @@ async function main() {
   if (!Number.isFinite(args.days) || args.days < 1) {
     throw new Error("--days must be a positive number");
   }
+  if (!Number.isFinite(args.sheetTimeoutMs) || args.sheetTimeoutMs < 1000) {
+    throw new Error("--sheet-timeout-ms must be at least 1000");
+  }
 
   const cutoffDate = new Date();
   cutoffDate.setHours(0, 0, 0, 0);
@@ -335,7 +353,7 @@ async function main() {
 
   const sites = sitesFile
     ? await loadSitesFromFile(sitesFile)
-    : await loadSitesFromSheet(sheetUrl);
+    : await loadSitesFromSheet(sheetUrl, args.sheetTimeoutMs);
 
   if (sites.length === 0) {
     throw new Error("No sites found. Check input file/sheet.");
