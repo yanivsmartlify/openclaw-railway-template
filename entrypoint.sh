@@ -4,6 +4,12 @@ set -e
 chown -R openclaw:openclaw /data
 chmod 700 /data
 
+# Make app-level Node dependencies discoverable from /data/workspace.
+# Node module resolution from /data/workspace climbs to /data/node_modules.
+if [ ! -e /data/node_modules ]; then
+  ln -s /app/node_modules /data/node_modules
+fi
+
 if [ ! -d /data/.linuxbrew ]; then
   cp -a /home/linuxbrew/.linuxbrew /data/.linuxbrew
 fi
